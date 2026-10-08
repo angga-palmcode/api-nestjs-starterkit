@@ -16,7 +16,7 @@ Not tagged yet: the final verification against real PostgreSQL, Redis and Docker
 - **Query builder** (`src/common/query`): `filter[...]`, `search`, `sort`, `include`, pagination with a hard cap, whitelist enforcement, soft-delete awareness, row-level `scope`, Swagger generation from the same definition.
 - **Optional modules**: mail (console / SMTP), storage (local / S3), Redis (shared, fail-open rate limiting), jobs (cron scaffold + token cleanup), RBAC; each deletable, verified by `npm run check:rbac-removable`.
 - **`src/example`**: a complete reference module with a copy-me checklist.
-- **Documentation**: README, ARCHITECTURE, `docs/DECISIONS.md`, and how-to guides (add a module, OTP, MFA, error codes, optional modules, remove RBAC, multi-tenancy, dynamic roles, upgrade).
+- **Documentation**: README, ARCHITECTURE, `docs/DECISIONS.md`, and how-to guides (use as template, add a module, OTP, MFA, error codes, optional modules, remove RBAC, multi-tenancy, dynamic roles, upgrade).
 
 ### Upgrade notes
 

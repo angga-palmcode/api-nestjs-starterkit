@@ -115,11 +115,13 @@ docker run --env-file prod.env -p 3000:3000 my-api
 
 ## Starting a real project from this template
 
-1. Rename: `name` and `version` in `package.json`, `APP_NAME` in `.env`.
-2. `rm -rf docs/_origin` (the kit's provenance; it is only for kit maintainers).
-3. Remove the optional modules you do not need ([docs/how-to/optional-modules.md](docs/how-to/optional-modules.md), [docs/how-to/remove-rbac.md](docs/how-to/remove-rbac.md)).
-4. Build your first feature by copying `src/example` ([docs/how-to/add-module.md](docs/how-to/add-module.md)), then delete the example module and the `ExampleItem` model.
-5. Replace the seed accounts and the permission matrix (`src/rbac/permissions.ts`) with yours.
+Use the GitHub "Use this template" button (or `gh repo create <name> --template <org>/<kit-repo>`), never a manual copy or a `git pull` into an existing repository. The full guide, with the alternatives, the cleanup checklist and what each optional module's removal means, is [docs/how-to/use-as-template.md](docs/how-to/use-as-template.md). In short:
+
+1. Create the copy (template or `degit`; no kit history).
+2. `rm -rf docs/_origin`, rename `name` / `version` in `package.json` and `APP_NAME` in `.env`, reset `CHANGELOG.md`.
+3. Delete the optional modules you do not need, then run `npm ci && npm run lint:check && npm run typecheck && npm test`.
+4. Build your first feature by copying `src/example` ([add-module.md](docs/how-to/add-module.md)), then delete the example module and the `ExampleItem` model.
+5. Replace the seed accounts and the permission matrix (`src/rbac/permissions.ts`).
 
 ## Documentation
 
@@ -127,7 +129,7 @@ docker run --env-file prod.env -p 3000:3000 my-api
 | :-- | :-- |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | How it fits together: request lifecycle, auth design, data model, security decisions, testing strategy |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Every non-obvious decision and dependency pin, with the reason |
-| [docs/how-to/](docs/how-to) | add a module · enable OTP · enable MFA · add an error code · optional modules · remove RBAC · multi-tenancy · dynamic roles · upgrade |
+| [docs/how-to/](docs/how-to) | **use as template** · add a module · enable OTP · enable MFA · add an error code · optional modules · remove RBAC · multi-tenancy · dynamic roles · upgrade |
 | [CHANGELOG.md](CHANGELOG.md) | Releases and upgrade notes |
 | [CLAUDE.md](CLAUDE.md) | Guidance for AI coding assistants (and a dense summary for humans) |
 | [src/example/README.md](src/example/README.md) | The checklist for adding a feature |

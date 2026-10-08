@@ -1,6 +1,6 @@
 # Upgrade a project to a newer kit version
 
-A project created from this template is a **copy**, not a dependency: nothing updates itself. To pick up fixes and features from a newer kit release you merge them in, and `CHANGELOG.md` tells you what to expect.
+A project created from this template (see [use-as-template.md](use-as-template.md)) is a **copy**, not a dependency: nothing updates itself. To pick up fixes and features from a newer kit release you merge them in, and `CHANGELOG.md` tells you what to expect.
 
 ## 1. Know what you own
 
