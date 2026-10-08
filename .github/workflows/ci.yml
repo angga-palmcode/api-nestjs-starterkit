@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  HUSKY: '0'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: app
+          POSTGRES_PASSWORD: app
+          POSTGRES_DB: app
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app -d app"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://app:app@localhost:5432/app?schema=public
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint:check
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm run build
+      # Proves docs/how-to/remove-rbac.md and optional-modules.md: the project compiles
+      # without each optional module (and without all of them)
+      - run: npm run check:rbac-removable
+      - run: npm run test:cov
+      # Apply the committed migrations to the CI database, then run e2e
+      # including the real-database and real-Redis suites (test/database.e2e-spec.ts,
+      # test/redis.e2e-spec.ts).
+      - run: npm run migrate
+      - run: npm run test:e2e
+        env:
+          RUN_DB_TESTS: 'true'
+      # The seed must be idempotent: running it twice must succeed.
+      - run: npm run seed && npm run seed
+        env:
+          SEED_SUPERADMIN_EMAIL: superadmin@example.com
+          SEED_SUPERADMIN_PASSWORD: ci-only-superadmin-password
+          SEED_ADMIN_EMAIL: admin@example.com
+          SEED_ADMIN_PASSWORD: ci-only-admin-password
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t nest-starter-kit:ci .
+      - run: docker build --target migrator -t nest-starter-kit:migrator-ci .

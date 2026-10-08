@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+generated/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+dist-seed/
+.tmp-rbac-check/
+storage-data/

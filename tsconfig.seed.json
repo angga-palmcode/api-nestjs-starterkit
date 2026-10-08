@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node10",
+    "isolatedModules": false,
+    "noEmit": false,
+    "outDir": "./dist-seed"
+  },
+  "include": [
+    "prisma/seed.ts",
+    "prisma/seed-accounts.ts",
+    "src/common/utils/password.util.ts"
+  ]
+}

@@ -1,0 +1,219 @@
+// Prisma schema. Conventions (Blueprint A10):
+//  - snake_case fields; table names are snake_case plurals via @@map.
+//  - Domain tables carry audit fields: created_at, updated_at, deleted_at, created_by, updated_by.
+//    Soft delete goes through src/prisma/soft-delete.ts, never ad-hoc.
+//  - Single-tenant: there is deliberately no tenant_id (see docs/how-to/enable-multitenancy.md).
+//  - Auth-flag tables (otp_tokens, mfa_secrets, ...) always exist; flags change the flow, not the schema.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  superadmin
+  admin
+  user
+}
+
+enum OtpPurpose {
+  login
+  mfa
+}
+
+model User {
+  id                    String    @id @default(uuid()) @db.Uuid
+  /// Stored lower-cased by the application.
+  email                 String    @unique
+  /// Null until an invited user sets a password.
+  password_hash         String?
+  name                  String
+  role                  Role      @default(user)
+  is_active             Boolean   @default(true)
+  email_verified_at     DateTime?
+  mfa_enabled           Boolean   @default(false)
+  failed_login_attempts Int       @default(0)
+  locked_until          DateTime?
+  /// Bumped on deactivate / role change / force-logout; access tokens carry it and are rejected when stale.
+  token_version         Int       @default(0)
+  last_login_at         DateTime?
+
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+  created_by String?   @db.Uuid
+  updated_by String?   @db.Uuid
+
+  sessions              UserSession[]
+  refresh_tokens        RefreshToken[]
+  password_reset_tokens PasswordResetToken[]
+  otp_tokens            OtpToken[]
+  mfa_secret            MfaSecret?
+  mfa_recovery_codes    MfaRecoveryCode[]
+  invitations_sent      UserInvitation[]
+  audit_logs            AuditLog[]
+
+  @@index([role])
+  @@index([deleted_at])
+  @@map("users")
+}
+
+model UserSession {
+  id           String    @id @default(uuid()) @db.Uuid
+  user_id      String    @db.Uuid
+  user_agent   String?
+  ip           String?
+  last_seen_at DateTime  @default(now())
+  created_at   DateTime  @default(now())
+  revoked_at   DateTime?
+
+  user           User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  refresh_tokens RefreshToken[]
+
+  @@index([user_id])
+  @@map("user_sessions")
+}
+
+/// Opaque rotating refresh token. Only the SHA-256 hash is stored.
+/// `family_id` groups a rotation chain so reuse of an old token revokes the whole family.
+model RefreshToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  user_id    String    @db.Uuid
+  session_id String    @db.Uuid
+  family_id  String    @db.Uuid
+  token_hash String    @unique
+  expires_at DateTime
+  used_at    DateTime?
+  revoked_at DateTime?
+  created_at DateTime  @default(now())
+
+  user    User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  session UserSession @relation(fields: [session_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([session_id])
+  @@index([family_id])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  user_id    String    @db.Uuid
+  token_hash String    @unique
+  expires_at DateTime
+  used_at    DateTime?
+  created_at DateTime  @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
+  @@map("password_reset_tokens")
+}
+
+/// Short-lived email/SMS one-time code (login OTP or MFA step). Hashed, attempt-limited, single use.
+model OtpToken {
+  id          String     @id @default(uuid()) @db.Uuid
+  user_id     String     @db.Uuid
+  purpose     OtpPurpose
+  code_hash   String
+  attempts    Int        @default(0)
+  expires_at  DateTime
+  consumed_at DateTime?
+  created_at  DateTime   @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, purpose, created_at])
+  @@map("otp_tokens")
+}
+
+model MfaSecret {
+  id             String    @id @default(uuid()) @db.Uuid
+  user_id        String    @unique @db.Uuid
+  /// Active TOTP secret (set only after the user confirms a code). Encrypted at rest from Phase 4.
+  secret         String?
+  /// Secret being enrolled; promoted to `secret` on confirmation so a repeat /setup cannot clobber an active one.
+  pending_secret String?
+  /// Last accepted TOTP time-step; codes at or below it are rejected (replay protection).
+  last_used_step Int?
+  confirmed_at   DateTime?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("mfa_secrets")
+}
+
+model MfaRecoveryCode {
+  id         String    @id @default(uuid()) @db.Uuid
+  user_id    String    @db.Uuid
+  code_hash  String
+  used_at    DateTime?
+  created_at DateTime  @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("mfa_recovery_codes")
+}
+
+model UserInvitation {
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String
+  name          String?
+  role          Role      @default(user)
+  token_hash    String    @unique
+  invited_by_id String?   @db.Uuid
+  expires_at    DateTime
+  accepted_at   DateTime?
+  revoked_at    DateTime?
+  created_at    DateTime  @default(now())
+
+  invited_by User? @relation(fields: [invited_by_id], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@map("user_invitations")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  /// Null for system actions or anonymous attempts (e.g. a failed login).
+  actor_id    String?  @db.Uuid
+  action      String
+  entity_type String?
+  entity_id   String?
+  metadata    Json?
+  ip          String?
+  user_agent  String?
+  request_id  String?
+  created_at  DateTime @default(now())
+
+  actor User? @relation(fields: [actor_id], references: [id], onDelete: SetNull)
+
+  @@index([actor_id, created_at])
+  @@index([entity_type, entity_id])
+  @@index([action, created_at])
+  @@map("audit_logs")
+}
+
+/// Reference entity for the `example/` module (Phase 7). Delete it with that module when you start a real project.
+model ExampleItem {
+  id           String  @id @default(uuid()) @db.Uuid
+  name         String
+  description  String?
+  is_published Boolean @default(false)
+
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+  created_by String?   @db.Uuid
+  updated_by String?   @db.Uuid
+
+  @@index([deleted_at])
+  @@map("example_items")
+}
