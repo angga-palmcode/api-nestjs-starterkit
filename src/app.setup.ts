@@ -25,7 +25,17 @@ export function configureApp(app: NestExpressApplication): void {
 
   // First, so every later middleware, guard and log line sees the request id.
   app.use(createRequestIdMiddleware(logger));
-  app.use(helmet());
+  const production = config.get('NODE_ENV', { infer: true }) === 'production';
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        // helmet's default CSP includes `upgrade-insecure-requests`. Over plain http in development
+        // some browsers (Safari, Firefox) then try to load Swagger UI's assets from https://localhost
+        // and show a blank page, so it is dropped outside production (where TLS is expected).
+        directives: production ? {} : { 'upgrade-insecure-requests': null },
+      },
+    }),
+  );
 
   const origins = config.get('CORS_ORIGINS', { infer: true });
   app.enableCors({

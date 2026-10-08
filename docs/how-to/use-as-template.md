@@ -85,6 +85,35 @@ If the repository was created on GitHub with a README or license, the first push
 - Do not keep the kit's `.git` folder.
 - Do not copy `.env`; create your own from `.env.example`.
 
+## Quick path after the copy (commands only)
+
+The same steps as sections 2 to 5, as one ordered list. Run it inside the new project folder. Options A and B already give you a git repository: skip the `git init`.
+
+```bash
+git init -b main                 # options C/D only. Do it BEFORE npm ci: Husky installs its git hooks into the repository
+rm -rf docs/_origin              # PowerShell: Remove-Item -Recurse -Force docs\_origin
+cp .env.example .env             # PowerShell: Copy-Item .env.example .env
+```
+
+Edit by hand: `name` and `version` in `package.json`; `APP_NAME` and `SEED_SUPERADMIN_PASSWORD` (12+ characters) in `.env`; comment out `REDIS_URL` if the project will not use Redis; reset `CHANGELOG.md` to your own.
+
+Optional, as its own commit: delete the optional modules you do not need (section 3).
+
+```bash
+npm ci                           # installs, runs `prisma generate`, installs the git hooks
+npm run lint:check && npm run typecheck && npm test      # must be green before you write any project code
+
+docker compose up -d             # PostgreSQL (and Redis, if kept)
+npm run migrate                  # create the tables
+npm run seed                     # create the superadmin from the SEED_* variables
+npm run start:dev                # http://localhost:3000, API docs at /docs
+
+git add . && git status          # check: no .env, no node_modules
+git commit -m "chore: initial project from starter kit"
+```
+
+Then connect GitHub (the end of option D shows both ways: `git remote add origin ...` + push, or `gh repo create ... --source . --push`).
+
 ## 2. Make it yours (before the first commit)
 
 | Step | What to do |
@@ -115,7 +144,7 @@ npm run start:dev         # then open http://localhost:3000/docs
 
 | Folder | Delete it when | What changes |
 | :-- | :-- | :-- |
-| `src/redis` | You do not need rate limiting shared across instances. Also removes the "Redis connection error" warning if you never run Redis. Remove `REDIS_URL` and `THROTTLE_STORAGE` from `.env` | Rate limits are counted in memory per instance. If `THROTTLE_STORAGE=redis` is still set the app refuses to boot |
+| `src/redis` | You do not need rate limiting shared across instances. Also removes the "Redis connection error" warning if you never run Redis. Remove `REDIS_URL` from `.env` | Rate limits are counted in memory per instance. A leftover `REDIS_URL` is simply unused |
 | `src/mail` | You send no email, or you provide your own `EMAIL_TRANSPORT` (SES, Postmark, ...) | `AUTH_DELIVERY=email` refuses to boot without a transport; use `console` or your own provider |
 | `src/storage` | You store no files | Nothing else uses it |
 | `src/jobs` | You have no scheduled work | Expired tokens and sessions accumulate unless you add your own cleanup |
@@ -138,3 +167,7 @@ A project made from the template is a copy, so kit fixes do not arrive by themse
 - If you must edit a kit file, keep the change small and write it down in your own docs.
 - Note which kit version you started from (the tag, or the commit hash if there is no tag yet) in your `README` or `CHANGELOG.md`.
 - Read [upgrade.md](upgrade.md) before the first update.
+
+## 6. First prompt for your AI coding assistant
+
+If you work with an assistant such as Claude Code, start the project with the saved prompt in [docs/prompts/first-prompt.md](../prompts/first-prompt.md). In order, it makes the assistant: read `CLAUDE.md` first; **set the project up** (the mandatory steps of the README Quick start: `git init` if needed, `npm ci`, create `.env` from `.env.example` and stop so you can fill in the secrets, `docker compose up -d`, `npm run migrate`, `npm run seed`, lint + typecheck + tests, a health check); read the project docs and `src/example/`; and reply with a plan before writing any code. It never reads `.env`, and asks before committing, deleting files, creating migrations or installing new dependencies. Fill in the project description placeholders, paste it as the first message, and keep the file in the repository for everyone who joins later.

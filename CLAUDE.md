@@ -97,4 +97,5 @@ URL: `?filter[role]=admin,user&filter[created_between]=2026-01-01,2026-01-31&sea
 | `README.md`, `ARCHITECTURE.md` | Setup and how it fits together |
 | `docs/DECISIONS.md` | Why: decisions, pins, deviations |
 | `docs/how-to/` | use-as-template, add-module, enable-otp, enable-mfa, add-error-code, optional-modules, remove-rbac, enable-multitenancy, dynamic-roles, upgrade |
+| `docs/prompts/first-prompt.md` | The saved first prompt for a new project (rules, setup commands, plan first) |
 | `CHANGELOG.md` | Releases and upgrade notes |

@@ -4,11 +4,9 @@ import { Test } from '@nestjs/testing';
 import { ThrottlerStorage, ThrottlerStorageService } from '@nestjs/throttler';
 import request from 'supertest';
 import { THROTTLER_STORAGE_OVERRIDE } from '../common/throttle/throttle.tokens';
-import { ThrottleModule } from '../common/throttle/throttle.module';
 import { AppLogger } from '../common/logger/app.logger';
 import { createApp } from '../../test/helpers/create-app';
-import { baseEnv, testEnv } from '../../test/helpers/test-env';
-import { validateEnv } from '../config/env.schema';
+import { testEnv } from '../../test/helpers/test-env';
 import {
   FailOpenThrottlerStorage,
   RedisThrottlerStorage,
@@ -166,18 +164,9 @@ describe('RedisModule', () => {
     await moduleRef.close();
   });
 
-  it('with a URL it has a client but keeps the memory storage unless THROTTLE_STORAGE=redis', async () => {
+  it('with REDIS_URL (the only switch) it has a client and the shared fail-open storage', async () => {
     const moduleRef = await compile({ REDIS_URL: 'redis://127.0.0.1:1' });
     expect(moduleRef.get(REDIS_CLIENT)).not.toBeNull();
-    expect(moduleRef.get(THROTTLER_STORAGE_OVERRIDE)).toBeNull();
-    await moduleRef.close();
-  });
-
-  it('provides the fail-open Redis storage when THROTTLE_STORAGE=redis', async () => {
-    const moduleRef = await compile({
-      REDIS_URL: 'redis://127.0.0.1:1',
-      THROTTLE_STORAGE: 'redis',
-    });
     expect(moduleRef.get(THROTTLER_STORAGE_OVERRIDE)).toBeInstanceOf(
       FailOpenThrottlerStorage,
     );
@@ -185,45 +174,13 @@ describe('RedisModule', () => {
   });
 });
 
-describe('THROTTLE_STORAGE=redis wiring', () => {
-  const env = (o: Record<string, string | undefined>) =>
-    validateEnv({ ...baseEnv, ...o });
-
-  it('needs REDIS_URL (boot-time validation)', () => {
-    expect(() => env({ THROTTLE_STORAGE: 'redis' })).toThrow(/REDIS_URL/);
-    expect(() =>
-      env({ THROTTLE_STORAGE: 'redis', REDIS_URL: 'redis://localhost:6379' }),
-    ).not.toThrow();
-  });
-
-  it('refuses to boot when the redis module is missing (storage not provided)', async () => {
-    const attempt = Test.createTestingModule({ imports: [ThrottleModule] })
-      .overrideProvider(ConfigService)
-      .useValue(
-        new ConfigService(
-          testEnv({ THROTTLE_STORAGE: 'redis', REDIS_URL: 'redis://x' }),
-        ),
-      )
-      .compile();
-    await expect(attempt).rejects.toBeDefined();
-  });
-
-  it('the app keeps rate limiting through the fail-open storage while Redis is down', async () => {
-    const storage = new FailOpenThrottlerStorage(
-      { increment: () => Promise.reject(new Error('ECONNREFUSED')) },
-      new ThrottlerStorageService(),
-      { warn: jest.fn(), log: jest.fn() },
-    );
-    const { app } = await createApp({
-      env: {
-        THROTTLE_ENABLED: 'true',
-        THROTTLE_STORAGE: 'redis',
-        REDIS_URL: 'redis://127.0.0.1:1',
-      },
-      overrides: [{ provide: THROTTLER_STORAGE_OVERRIDE, useValue: storage }],
-    });
+describe('rate limiting with and without Redis', () => {
+  const hitForgotPassword = async (
+    app: Awaited<ReturnType<typeof createApp>>['app'],
+    times: number,
+  ) => {
     const statuses: number[] = [];
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < times; i++) {
       statuses.push(
         (
           await request(app.getHttpServer())
@@ -232,7 +189,54 @@ describe('THROTTLE_STORAGE=redis wiring', () => {
         ).status,
       );
     }
-    expect(statuses).toEqual([202, 202, 202, 202, 202, 429, 429]);
+    return statuses;
+  };
+
+  it('without a storage override the in-memory throttler limits per instance', async () => {
+    const { app } = await createApp({ env: { THROTTLE_ENABLED: 'true' } });
+    expect(await hitForgotPassword(app, 7)).toEqual([
+      202, 202, 202, 202, 202, 429, 429,
+    ]);
+    await app.close();
+  });
+
+  it('keeps rate limiting through the fail-open storage while Redis is down', async () => {
+    const storage = new FailOpenThrottlerStorage(
+      { increment: () => Promise.reject(new Error('ECONNREFUSED')) },
+      new ThrottlerStorageService(),
+      { warn: jest.fn(), log: jest.fn() },
+    );
+    const { app } = await createApp({
+      env: { THROTTLE_ENABLED: 'true' },
+      overrides: [{ provide: THROTTLER_STORAGE_OVERRIDE, useValue: storage }],
+    });
+    expect(await hitForgotPassword(app, 7)).toEqual([
+      202, 202, 202, 202, 202, 429, 429,
+    ]);
+    await app.close();
+  });
+
+  it('uses the shared storage when one is provided (counters live there, not in the app)', async () => {
+    const calls: Array<{ key: string; limit: number }> = [];
+    const shared = {
+      increment: (key: string, _ttl: number, limit: number) => {
+        calls.push({ key, limit });
+        return Promise.resolve({
+          totalHits: 1,
+          timeToExpire: 60,
+          isBlocked: false,
+          timeToBlockExpire: 0,
+        });
+      },
+    };
+    const { app } = await createApp({
+      env: { THROTTLE_ENABLED: 'true' },
+      overrides: [{ provide: THROTTLER_STORAGE_OVERRIDE, useValue: shared }],
+    });
+    // 10 requests, a limit of 5: the shared store says "1 hit" every time, so nothing is throttled
+    expect(await hitForgotPassword(app, 10)).toEqual(Array(10).fill(202));
+    expect(calls.length).toBeGreaterThanOrEqual(10);
+    expect(calls.every((c) => c.limit === 5)).toBe(true);
     await app.close();
   });
 });

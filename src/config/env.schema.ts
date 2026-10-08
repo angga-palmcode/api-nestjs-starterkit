@@ -116,8 +116,6 @@ export const envSchema = z
     THROTTLE_ENABLED: flag(true),
     THROTTLE_LIMIT: z.coerce.number().int().min(1).default(100),
     THROTTLE_TTL_SECONDS: z.coerce.number().int().min(1).default(60),
-    /** Where throttle counters live. `redis` needs REDIS_URL and the redis module; fails open. */
-    THROTTLE_STORAGE: z.enum(['memory', 'redis']).default('memory'),
     /** Optional mail module: `console` (dev) or `smtp` (nodemailer). */
     MAIL_TRANSPORT: z.enum(['console', 'smtp']).default('console'),
     MAIL_FROM: optional(z.string().min(3)),
@@ -234,10 +232,6 @@ export const envSchema = z
         'STORAGE_DRIVER=s3 requires S3_BUCKET, S3_REGION, S3_ACCESS_KEY_ID and S3_SECRET_ACCESS_KEY',
     },
   )
-  .refine((env) => env.THROTTLE_STORAGE !== 'redis' || !!env.REDIS_URL, {
-    path: ['REDIS_URL'],
-    message: 'THROTTLE_STORAGE=redis requires REDIS_URL',
-  })
   .refine((env) => !env.SWAGGER_USER === !env.SWAGGER_PASSWORD, {
     path: ['SWAGGER_PASSWORD'],
     message: 'SWAGGER_USER and SWAGGER_PASSWORD must be set together',

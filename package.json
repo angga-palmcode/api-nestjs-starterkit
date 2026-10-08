@@ -115,7 +115,7 @@
     },
     "testEnvironment": "node",
     "setupFiles": [
-      "<rootDir>/../test/setup-env.ts"
+      "<rootDir>/../test/setup-unit.ts"
     ],
     "roots": [
       "<rootDir>",

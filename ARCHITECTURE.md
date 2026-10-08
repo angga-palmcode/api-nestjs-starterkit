@@ -143,7 +143,7 @@ Conventions: `snake_case`, UUID ids, `deleted_at` soft delete through `notDelete
 | `rbac` | Permission matrix, guard, `GET /rbac/permissions` | Decorator lines on routes | Any signed-in user passes route checks; user management keeps its own gate |
 | `mail` | `EMAIL_TRANSPORT` (console / SMTP) | Token | `AUTH_DELIVERY=email` refuses to boot |
 | `storage` | `STORAGE` (local / S3) | Token | Nothing else uses it |
-| `redis` | `REDIS_CLIENT`, shared fail-open throttle storage | Token + `THROTTLE_STORAGE` | `THROTTLE_STORAGE=redis` refuses to boot |
+| `redis` | `REDIS_CLIENT`, shared fail-open throttle storage | Token; `REDIS_URL` is the only switch | Rate limits are counted in memory per instance |
 | `jobs` | Cron scaffold + token cleanup job | None | Expired rows accumulate |
 
 See [docs/how-to/optional-modules.md](docs/how-to/optional-modules.md).

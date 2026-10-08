@@ -61,6 +61,24 @@ describe('App bootstrap (e2e)', () => {
     expect(res.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/);
   });
 
+  it('sends a CSP; `upgrade-insecure-requests` only in production (keeps Swagger UI working over http in dev)', async () => {
+    await boot();
+    const dev = await request(app.getHttpServer()).get('/healthz');
+    expect(dev.headers['content-security-policy']).toContain(
+      "default-src 'self'",
+    );
+    expect(dev.headers['content-security-policy']).not.toContain(
+      'upgrade-insecure-requests',
+    );
+    await app.close();
+
+    await boot({ NODE_ENV: 'production' });
+    const prod = await request(app.getHttpServer()).get('/healthz');
+    expect(prod.headers['content-security-policy']).toContain(
+      'upgrade-insecure-requests',
+    );
+  });
+
   it('echoes a safe incoming request id', async () => {
     await boot();
     const res = await request(app.getHttpServer())

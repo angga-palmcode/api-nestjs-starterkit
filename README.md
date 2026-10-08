@@ -14,19 +14,27 @@ A domain-agnostic backend foundation: **NestJS 11 · TypeScript (strict) · Pris
 
 ## Quick start (about 5 minutes)
 
+This is the **"I just cloned the project"** path: the equivalent of `composer install` + `.env` + `key:generate` + `migrate` + `db:seed` + `serve`. It is also what a new teammate runs on day one.
+
 Requirements: Node 22, npm, Docker (for PostgreSQL and Redis).
 
 ```bash
-git init                      # Husky git hooks need a repository
-npm ci                        # also runs `prisma generate`
+git clone <repository-url> && cd <project>
+npm ci                        # install; also runs `prisma generate` and installs the git hooks
 cp .env.example .env          # then set SEED_SUPERADMIN_PASSWORD (12+ characters) in .env
-docker compose up -d          # PostgreSQL 16 + Redis 7
-npm run migrate               # apply prisma/migrations
+docker compose up -d          # PostgreSQL 16 (+ Redis 7, only needed if you use it)
+npm run migrate               # apply prisma/migrations (creates the tables)
 npm run seed                  # creates the superadmin from the SEED_* variables
-npm run start:dev             # http://localhost:3000
+npm run start:dev             # http://localhost:3000, API docs at /docs
 ```
 
-The three `AUTH_*_SECRET` placeholders in `.env.example` work in development. They are **refused in production**: generate real ones with `openssl rand -base64 48` (three different values).
+Notes:
+
+- After `git clone` you already have a repository. Only if the folder is **not** a git repository yet (for example you copied the files) run `git init -b main` **before** `npm ci`: Husky installs its hooks into the repository.
+- The three `AUTH_*_SECRET` placeholders in `.env.example` work in development. They are **refused in production**: generate real ones with `openssl rand -base64 48` (three different values). For a shared environment (staging, production) ask the team for the real values; never commit `.env`.
+- Redis is optional. If you do not run it, comment out `REDIS_URL` in `.env` (see [docs/how-to/optional-modules.md](docs/how-to/optional-modules.md)).
+- Later, after pulling new commits: `npm ci` if `package-lock.json` changed, `npm run migrate` if `prisma/migrations/` changed, then `npm run start:dev`.
+- Starting a **new** project from the kit instead? Follow [docs/how-to/use-as-template.md](docs/how-to/use-as-template.md); this section is for an existing repository.
 
 Try it:
 
@@ -67,7 +75,7 @@ Every variable is declared and validated in `src/config/env.schema.ts`; the app 
 | Swagger | `SWAGGER_ENABLED`, `SWAGGER_USER` / `SWAGGER_PASSWORD`, `APP_NAME`, `APP_VERSION` |
 | Auth flow | `AUTH_METHODS`, `AUTH_MFA`, `AUTH_REQUIRE_EMAIL_VERIFICATION`, `AUTH_ALLOW_REGISTRATION`, `AUTH_VERIFY_USER_PER_REQUEST`, `AUTH_DELIVERY` |
 | Auth secrets & limits | `AUTH_ACCESS_SECRET`, `AUTH_MFA_CHALLENGE_SECRET`, `AUTH_EMAIL_VERIFY_SECRET`, `AUTH_MFA_ENCRYPTION_KEY`, TTLs, attempt and lockout limits, `AUTH_BCRYPT_ROUNDS` |
-| Throttling | `THROTTLE_ENABLED`, `THROTTLE_LIMIT`, `THROTTLE_TTL_SECONDS`, `THROTTLE_STORAGE` |
+| Throttling | `THROTTLE_ENABLED`, `THROTTLE_LIMIT`, `THROTTLE_TTL_SECONDS` |
 | Optional modules | `MAIL_*` / `SMTP_*`, `STORAGE_*` / `S3_*`, `REDIS_URL`, `ENABLE_CRON`, `JOBS_RETENTION_DAYS` |
 
 ## Project layout
@@ -130,6 +138,7 @@ Use the GitHub "Use this template" button (or `gh repo create <name> --template 
 | [ARCHITECTURE.md](ARCHITECTURE.md) | How it fits together: request lifecycle, auth design, data model, security decisions, testing strategy |
 | [docs/DECISIONS.md](docs/DECISIONS.md) | Every non-obvious decision and dependency pin, with the reason |
 | [docs/how-to/](docs/how-to) | **use as template** · add a module · enable OTP · enable MFA · add an error code · optional modules · remove RBAC · multi-tenancy · dynamic roles · upgrade |
+| [docs/prompts/first-prompt.md](docs/prompts/first-prompt.md) | The first prompt to give an AI coding assistant in a new project (read `CLAUDE.md`, run the setup steps, ground rules) |
 | [CHANGELOG.md](CHANGELOG.md) | Releases and upgrade notes |
 | [CLAUDE.md](CLAUDE.md) | Guidance for AI coding assistants (and a dense summary for humans) |
 | [src/example/README.md](src/example/README.md) | The checklist for adding a feature |

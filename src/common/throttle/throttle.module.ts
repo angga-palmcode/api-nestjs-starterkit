@@ -10,8 +10,8 @@ import { Env } from '../../config/env.schema';
 import { THROTTLER_STORAGE_OVERRIDE } from './throttle.tokens';
 
 /**
- * Global rate limiting. Counters are in memory per instance by default; with
- * `THROTTLE_STORAGE=redis` the redis module supplies a shared, fail-open storage.
+ * Global rate limiting. Counters are in memory per instance by default; when `REDIS_URL` is set
+ * the redis module supplies a shared, fail-open storage instead.
  * Sensitive routes tighten limits with `@Throttle({ default: { limit, ttl } })`.
  * `THROTTLE_ENABLED=false` switches everything off (tests, local debugging).
  */
@@ -26,15 +26,6 @@ import { THROTTLER_STORAGE_OVERRIDE } from './throttle.tokens';
         config: ConfigService<Env, true>,
         storage?: ThrottlerStorage | null,
       ) => {
-        if (
-          config.get('THROTTLE_STORAGE', { infer: true }) === 'redis' &&
-          !storage
-        ) {
-          // e.g. src/redis/ was deleted but the flag is still set: fail at boot, not silently per-instance.
-          throw new Error(
-            'THROTTLE_STORAGE=redis requires the redis module (src/redis) to provide the storage',
-          );
-        }
         return {
           throttlers: [
             {

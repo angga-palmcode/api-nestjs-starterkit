@@ -37,14 +37,14 @@ The API is Buffer-based on purpose. For big files hand the client a presigned UR
 
 ## Redis (`src/redis`)
 
-Provides `REDIS_CLIENT` (`null` when `REDIS_URL` is unset, so injecting it is always safe) and, with `THROTTLE_STORAGE=redis`, a shared throttle storage for rate limiting across instances.
+**`REDIS_URL` is the only switch.** Unset (the default): no Redis client, rate limits are counted in memory per instance. Set: the module provides `REDIS_CLIENT` and a shared throttle storage, so rate limits hold across several instances. `REDIS_CLIENT` is `null` when `REDIS_URL` is unset, so injecting it is always safe.
 
 - The storage **fails open**: if Redis errors, requests are counted per instance in memory (the API stays up, limits degrade), a warning is logged at most every 30 s, and it recovers by itself.
 - The client never queues commands while disconnected and reconnects with a capped back-off.
 - Counters are a fixed window, updated by one atomic Lua script (checked against a real Redis in `test/redis.e2e-spec.ts`).
 - No readiness check on purpose: Redis being down must not take instances out of the load balancer.
 
-**Removing it** while `THROTTLE_STORAGE=redis` fails at boot ("requires the redis module"); set `THROTTLE_STORAGE=memory`.
+**Removing it:** rate limits go back to per-instance memory; a leftover `REDIS_URL` is simply unused. To try it locally: `docker compose up -d`, then set `REDIS_URL=redis://localhost:6379`.
 
 ## Jobs (`src/jobs`)
 

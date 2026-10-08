@@ -31,8 +31,8 @@ export function describeRedisError(error: Error): string {
 
 /**
  * Optional module. `REDIS_CLIENT` is `null` when `REDIS_URL` is unset, so injecting it is
- * always safe. With `THROTTLE_STORAGE=redis` it also provides the shared, fail-open throttle
- * storage. The client never queues commands while disconnected and keeps reconnecting with a
+ * always safe. When `REDIS_URL` is set (the only switch) it also provides the shared, fail-open
+ * throttle storage. The client never queues commands while disconnected and keeps reconnecting with a
  * capped back-off, so a Redis outage costs a request nothing but a fallback to memory.
  * Deleting `src/redis/` is supported (docs/how-to/optional-modules.md).
  */
@@ -60,7 +60,7 @@ export function describeRedisError(error: Error): string {
           if (now - lastLogged > 30_000) {
             lastLogged = now;
             logger.warn(
-              `Redis connection error: ${describeRedisError(error)} (REDIS_URL is set but Redis is unreachable; only THROTTLE_STORAGE=redis needs it)`,
+              `Redis connection error: ${describeRedisError(error)} (REDIS_URL is set but Redis is unreachable; rate limits fall back to per-instance memory)`,
               'Redis',
             );
           }
@@ -70,13 +70,9 @@ export function describeRedisError(error: Error): string {
     },
     {
       provide: THROTTLER_STORAGE_OVERRIDE,
-      inject: [ConfigService, REDIS_CLIENT, AppLogger],
-      useFactory: (
-        config: ConfigService<Env, true>,
-        client: Redis | null,
-        logger: AppLogger,
-      ) =>
-        config.get('THROTTLE_STORAGE', { infer: true }) === 'redis' && client
+      inject: [REDIS_CLIENT, AppLogger],
+      useFactory: (client: Redis | null, logger: AppLogger) =>
+        client
           ? new FailOpenThrottlerStorage(
               new RedisThrottlerStorage(client),
               new ThrottlerStorageService(),
