@@ -115,9 +115,9 @@ docker run --env-file prod.env -p 3000:3000 my-api
 
 ## Starting a real project from this template
 
-Use the GitHub "Use this template" button (or `gh repo create <name> --template <org>/<kit-repo>`), never a manual copy or a `git pull` into an existing repository. The full guide, with the alternatives, the cleanup checklist and what each optional module's removal means, is [docs/how-to/use-as-template.md](docs/how-to/use-as-template.md). In short:
+Use the GitHub "Use this template" button (or `gh repo create <name> --template <org>/<kit-repo>`) once the kit is on GitHub. A manual copy works too (the guide shows how, with the repository created first or later). Never `git pull` the kit into an existing repository. The full guide, with the alternatives, the cleanup checklist and what each optional module's removal means, is [docs/how-to/use-as-template.md](docs/how-to/use-as-template.md). In short:
 
-1. Create the copy (template or `degit`; no kit history).
+1. Create the copy: GitHub template or `degit` (no kit history), or a manual copy with the repository created first or later (options A to D in the guide).
 2. `rm -rf docs/_origin`, rename `name` / `version` in `package.json` and `APP_NAME` in `.env`, reset `CHANGELOG.md`.
 3. Delete the optional modules you do not need, then run `npm ci && npm run lint:check && npm run typecheck && npm test`.
 4. Build your first feature by copying `src/example` ([add-module.md](docs/how-to/add-module.md)), then delete the example module and the `ExampleItem` model.

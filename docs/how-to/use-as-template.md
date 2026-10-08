@@ -4,50 +4,86 @@ The kit is meant to be used as a **template**: every new backend starts from a c
 
 ## 1. Create the copy
 
-Pick one. Options 1 and 2 give you a clean history and nothing else to clean up.
+Pick **one** option (A to D); the cleanup in sections 2 to 5 is the same afterwards. They differ in two things: whether the kit already lives on GitHub, and whether the repository for your new project exists yet.
 
-### Option 1 (recommended): GitHub template repository
+| Option | Needs the kit on GitHub? | Needs the new project's repository first? | Best when |
+| :-- | :-- | :-- | :-- |
+| **A** GitHub template | yes (marked as a template) | no, it creates it | The normal case once the kit is published |
+| **B** `degit` | yes | no | You want the files only, without any git history |
+| **C** Manual copy, repository first | no | yes (empty) | You like to `git clone` first and copy files in |
+| **D** Manual copy, repository later | no | no | The repository does not exist yet, or you want to start offline |
+
+### A. GitHub template repository (recommended)
 
 One-time setup in the kit repository: *Settings → General → tick "Template repository"*. Then, for every new project:
 
 ```bash
-gh repo create <my-project> --template <org>/<kit-repo> --private --clone
+gh repo create <org>/<my-project> --template <org>/<kit-repo> --private --clone
 # or in the browser: "Use this template" → "Create a new repository", then git clone
 cd <my-project>
 ```
 
 The new repository starts with a single commit, is already connected to GitHub, and does not carry the kit's history.
 
-### Option 2: `degit` (files only, no git history)
+### B. `degit` (files only, no git history)
 
 ```bash
 npx degit <org>/<kit-repo> <my-project>        # private repository: add --mode=git
 cd <my-project>
 git init -b main
-git remote add origin <url-of-the-new-repository>
 ```
 
-### Option 3: copy the folder by hand (only if you must)
+Connect it to GitHub whenever you are ready (see the end of option D).
 
-Never copy the whole folder blindly: it may contain `node_modules`, `dist`, a `.env` with secrets, local assistant settings (`.claude`) and the kit's own `.git` (which would give your project the kit's history and remote).
+### C. Manual copy into a freshly cloned, empty repository
 
 ```bash
-# Windows
-robocopy <kit-folder> <my-project> /E /XD node_modules dist coverage .git .claude storage-data
-# macOS / Linux
-rsync -a --exclude node_modules --exclude dist --exclude coverage --exclude .git --exclude .claude --exclude storage-data <kit-folder>/ <my-project>/
-
-cd <my-project>
-git init -b main
-git remote add origin <url-of-the-new-repository>
+git clone git@github.com:<org>/<my-project>.git
 ```
 
-Check with `ls -a` that dot-files came along: `.github/`, `.husky/`, `.env.example`, `.gitignore`, `.gitattributes`, `.prettierrc`, `.dockerignore`.
+Then copy the kit into it, **excluding** what must not travel:
+
+```bash
+# Windows (PowerShell / cmd)
+robocopy <kit-folder> <my-project> /E /XD node_modules dist coverage .git .claude storage-data .tmp-rbac-check /XF .env
+# macOS / Linux / Git Bash
+rsync -a --exclude node_modules --exclude dist --exclude coverage --exclude .git \
+  --exclude .claude --exclude storage-data --exclude .tmp-rbac-check --exclude .env \
+  <kit-folder>/ <my-project>/
+```
+
+What is excluded and why: `node_modules` and `dist` are rebuilt; `.git` would give your project the kit's history and remote; `.claude` is local assistant settings; `.env` may hold secrets; `storage-data` is local file storage from development.
+
+Check that dot-files came along: `ls -a` must show `.github`, `.husky`, `.env.example`, `.gitignore`, `.gitattributes`, `.prettierrc`, `.dockerignore`.
+
+### D. Manual copy, repository created later (local first)
+
+Copy exactly as in option C, but into a plain new folder, then start a local repository:
+
+```bash
+# copy with the same robocopy / rsync command as option C, into <my-project>
+cd <my-project>
+git init -b main
+```
+
+Do sections 2 to 5 below (cleanup, verification, first commit). Connect GitHub whenever you like:
+
+```bash
+# the repository already exists on GitHub (created in the browser):
+git remote add origin git@github.com:<org>/<my-project>.git
+git push -u origin main
+
+# or create it from the command line and push in one go (GitHub CLI):
+gh repo create <org>/<my-project> --private --source . --remote origin --push
+```
+
+If the repository was created on GitHub with a README or license, the first push is rejected because the histories differ. Either force it when the remote content does not matter (`git push -u origin main --force`) or integrate it first (`git pull origin main --rebase --allow-unrelated-histories`, resolve the conflicts, push).
 
 ### What not to do
 
-- **Do not `git pull` the kit into an existing project repository.** It merges the kit's whole history into yours. Use the template or `degit` for the first copy; use the controlled merge in [upgrade.md](upgrade.md) for later updates.
+- **Do not `git pull` the kit into an existing project repository.** It merges the kit's whole history into yours. Use options A to D for the first copy and the controlled merge in [upgrade.md](upgrade.md) for later updates.
 - Do not keep the kit's `.git` folder.
+- Do not copy `.env`; create your own from `.env.example`.
 
 ## 2. Make it yours (before the first commit)
 
