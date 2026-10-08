@@ -13,6 +13,23 @@ import {
 export const REDIS_CLIENT = Symbol('REDIS_CLIENT');
 
 /**
+ * A readable reason for a connection error. When both IPv4 and IPv6 are refused ioredis
+ * throws an `AggregateError` with an empty message; show the underlying codes instead.
+ */
+export function describeRedisError(error: Error): string {
+  if (error.message) return error.message;
+  const inner = (error as { errors?: unknown }).errors;
+  const codes = Array.isArray(inner)
+    ? inner.map((e: unknown) => {
+        const err = e as NodeJS.ErrnoException;
+        return err.code ?? err.message ?? 'unknown';
+      })
+    : [];
+  const code = (error as NodeJS.ErrnoException).code;
+  return [...new Set(codes)].join(', ') || code || error.name;
+}
+
+/**
  * Optional module. `REDIS_CLIENT` is `null` when `REDIS_URL` is unset, so injecting it is
  * always safe. With `THROTTLE_STORAGE=redis` it also provides the shared, fail-open throttle
  * storage. The client never queues commands while disconnected and keeps reconnecting with a
@@ -42,7 +59,10 @@ export const REDIS_CLIENT = Symbol('REDIS_CLIENT');
           const now = Date.now();
           if (now - lastLogged > 30_000) {
             lastLogged = now;
-            logger.warn(`Redis connection error: ${error.message}`, 'Redis');
+            logger.warn(
+              `Redis connection error: ${describeRedisError(error)} (REDIS_URL is set but Redis is unreachable; only THROTTLE_STORAGE=redis needs it)`,
+              'Redis',
+            );
           }
         });
         return client;

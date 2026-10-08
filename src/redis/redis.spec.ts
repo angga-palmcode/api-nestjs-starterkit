@@ -13,7 +13,7 @@ import {
   FailOpenThrottlerStorage,
   RedisThrottlerStorage,
 } from './redis-throttler.storage';
-import { REDIS_CLIENT, RedisModule } from './redis.module';
+import { REDIS_CLIENT, RedisModule, describeRedisError } from './redis.module';
 
 describe('RedisThrottlerStorage', () => {
   it('runs the script atomically with namespaced keys and maps the reply', async () => {
@@ -234,5 +234,27 @@ describe('THROTTLE_STORAGE=redis wiring', () => {
     }
     expect(statuses).toEqual([202, 202, 202, 202, 202, 429, 429]);
     await app.close();
+  });
+});
+
+describe('describeRedisError', () => {
+  it('uses the message when there is one', () => {
+    expect(describeRedisError(new Error('boom'))).toBe('boom');
+  });
+
+  it('explains an empty AggregateError (IPv4 + IPv6 refused) by its codes', () => {
+    const refused = (code: string) => Object.assign(new Error(''), { code });
+    const aggregate = Object.assign(new Error(''), {
+      name: 'AggregateError',
+      errors: [refused('ECONNREFUSED'), refused('ECONNREFUSED')],
+    });
+    expect(describeRedisError(aggregate)).toBe('ECONNREFUSED');
+  });
+
+  it('falls back to the error code, then the name', () => {
+    expect(
+      describeRedisError(Object.assign(new Error(''), { code: 'ETIMEDOUT' })),
+    ).toBe('ETIMEDOUT');
+    expect(describeRedisError(new Error(''))).toBe('Error');
   });
 });
